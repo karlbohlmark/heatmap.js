@@ -1,0 +1,52 @@
+<style>
+
+</style>
+<canvas width="578" height="300" id="canvas"></canvas>
+<script>
+  var canvas = document.getElementById('canvas')
+    , width = canvas.width
+    , height = canvas.height
+    , ctx = canvas.getContext('2d')
+  ; 
+
+  var graphX = 20.5;
+  var graphY = 300;
+
+  var drawAxis = function(){
+    //the axis
+    ctx.beginPath();
+    ctx.moveTo(20.5,20);
+    ctx.lineTo(20.5,300);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+
+
+    for(var i = 0; i< height; i+=10){
+      ctx.beginPath();
+
+      var x1 = 19;
+      var x2 = 22;
+      var y = 300-i  -.5;
+      ctx.moveTo(x1, y);
+      ctx.lineTo(x2, y);
+      ctx.stroke();
+    }
+
+  }
+  drawAxis();
+  var data = [[2, 0, 0], [30, 0, 0], [20, 0, 10], [80, 0, 0],[0, 0, 0], [0, 0, 100]]
+
+  data.forEach(function(time, i){
+    time.forEach(function(server, j){
+      ctx.fillStyle = 'rgb('+ server +',70,100)';
+      var posx = graphX + i*10;
+      var posy = graphY - (j+1)*10;
+      console.log(posx, posy)
+      ctx.fillRect(posx, posy, 10, 10);
+    })
+  });
+
+  //ctx.fillRect(25,25,100,100);  
+  //ctx.clearRect(45,45,60,60);  
+  //ctx.strokeRect(50,50,50,50);
+</script>
