@@ -4,10 +4,6 @@ graphY = 300
 
 class Heatmap
   constructor: (@options)->
-    @canvas = document.createElement('canvas')
-    @canvas.width = @options.width
-    @canvas.height = @options.width
-    @ctx = @canvas.getContext('2d')
     @width = @options.width
     @height = @options.height
     @xbuckets = @options.xbuckets
@@ -33,6 +29,16 @@ class Heatmap
     ypxl = @height/@ybuckets
     xpxl = @width/@xbuckets
 
+    renderer = @options.renderer or 'canvas'
+
+    @['render_' + renderer].call @, data, xpxl, ypxl
+
+  render_canvas: (data, xpxl, ypxl)->
+    @canvas = document.createElement('canvas')
+    @canvas.width = @width
+    @canvas.height = @height
+    @ctx = @canvas.getContext('2d')
+
     data.forEach (time, i) =>
       time.forEach (count, j) =>
         @ctx.fillStyle = "rgb(" + Math.min(255, count * 30) + ",70,100)"
@@ -43,6 +49,12 @@ class Heatmap
     @drawAxis()
 
     @options.target.appendChild(@canvas)
+
+  render_html: (data, xpxl, ypxl)->
+    @div = document.createElement 'div'
+
+    data.forEach (time, i) =>
+      time.forEach (count, j) =>
 
   drawAxis : ->
     ctx = @ctx

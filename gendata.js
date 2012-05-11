@@ -1,5 +1,5 @@
 (function() {
-  var buckets, count, fs, gaussian, i, maxval, mean, minval, nsamples, sample, samples, uniform, variance, xbucket, xbuckets, xsize, ybucket, ybuckets, ysize, _i, _len, _ref;
+  var fs, gaussian, i, maxval, mean, minval, nsamples, samples, uniform, variance, xbuckets, ybuckets;
 
   fs = require('fs');
 
@@ -9,9 +9,9 @@
 
   minval = 0;
 
-  maxval = 800;
+  maxval = 200;
 
-  nsamples = 5000;
+  nsamples = 4000;
 
   samples = [];
 
@@ -35,38 +35,31 @@
     return ~~(Math.random() * largest);
   };
 
-  mean = 200;
+  mean = 10;
 
-  variance = 50;
+  variance = 4;
 
   samples = (function() {
     var _results;
     _results = [];
     for (i = 0; 0 <= nsamples ? i <= nsamples : i >= nsamples; 0 <= nsamples ? i++ : i--) {
-      if (i === nsamples / 3) mean = 300;
-      if (i === nsamples * 3 / 4) mean = 500;
+      if (i === nsamples / 6) {
+        mean = 20;
+        variance = 7;
+      }
+      if (i === nsamples * 2 / 6) {
+        mean = 150;
+        variance = 30;
+      }
+      if (i === nsamples * 5 / 6) {
+        mean = 200;
+        variance = 30;
+      }
       _results.push([uniform(1000), Math.min(maxval, Math.max(minval, gaussian(mean, variance)))]);
     }
     return _results;
   })();
 
-  ysize = maxval / ybuckets;
-
-  xsize = 1000 / xbuckets;
-
-  buckets = [];
-
-  for (_i = 0, _len = samples.length; _i < _len; _i++) {
-    sample = samples[_i];
-    xbucket = ~~(sample[0] / xsize);
-    ybucket = ~~(sample[1] / ysize);
-    if ((_ref = buckets[xbucket]) == null) buckets[xbucket] = [];
-    count = buckets[xbucket][ybucket] || 0;
-    buckets[xbucket][ybucket] = count + 1;
-  }
-
-  buckets;
-
-  console.dir(buckets);
+  fs.writeFileSync('data.js', 'var data = ' + JSON.stringify(samples));
 
 }).call(this);

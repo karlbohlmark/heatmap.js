@@ -9,10 +9,6 @@
 
     function Heatmap(options) {
       this.options = options;
-      this.canvas = document.createElement('canvas');
-      this.canvas.width = this.options.width;
-      this.canvas.height = this.options.width;
-      this.ctx = this.canvas.getContext('2d');
       this.width = this.options.width;
       this.height = this.options.height;
       this.xbuckets = this.options.xbuckets;
@@ -38,11 +34,20 @@
     };
 
     Heatmap.prototype.render = function(samples) {
-      var data, xpxl, ypxl;
-      var _this = this;
+      var data, renderer, xpxl, ypxl;
       data = this.partition(samples);
       ypxl = this.height / this.ybuckets;
       xpxl = this.width / this.xbuckets;
+      renderer = this.options.renderer || 'canvas';
+      return this['render_' + renderer].call(this, data, xpxl, ypxl);
+    };
+
+    Heatmap.prototype.render_canvas = function(data, xpxl, ypxl) {
+      var _this = this;
+      this.canvas = document.createElement('canvas');
+      this.canvas.width = this.width;
+      this.canvas.height = this.height;
+      this.ctx = this.canvas.getContext('2d');
       data.forEach(function(time, i) {
         return time.forEach(function(count, j) {
           var posx, posy;
@@ -54,6 +59,14 @@
       });
       this.drawAxis();
       return this.options.target.appendChild(this.canvas);
+    };
+
+    Heatmap.prototype.render_html = function(data, xpxl, ypxl) {
+      var _this = this;
+      this.div = document.createElement('div');
+      return data.forEach(function(time, i) {
+        return time.forEach(function(count, j) {});
+      });
     };
 
     Heatmap.prototype.drawAxis = function() {
