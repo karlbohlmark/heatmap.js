@@ -3,10 +3,10 @@ el = document.querySelector('body')
 heatmap = new Heatmap(
   target: el
   width: 600
-  height: 300
+  height: 400
   xbuckets: 100
   ybuckets: 50
-  ymax: 800
+  ymax: 50
   xmax: 1000
 )
 

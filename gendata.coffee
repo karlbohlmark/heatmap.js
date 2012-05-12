@@ -3,8 +3,8 @@ fs = require 'fs'
 ybuckets = 50
 xbuckets = 100
 
-minval = 0
-maxval = 800
+minval = 1
+maxval = 70
 
 nsamples = 5000
 
@@ -25,14 +25,16 @@ gaussian = (mean, variance)->
 
 uniform = (largest)-> ~~(Math.random()*largest)
 
-mean = 200
-variance = 50
-samples = for i in [0..nsamples]
-	mean = 300 if i == nsamples / 3
-	mean = 500 if i == nsamples * 3 / 4
-	[ uniform(1000), Math.min(maxval, Math.max(minval, gaussian(mean, variance))) ]
+exponential = (a)-> Math.log(1-Math.random())/(-a)
 
-#fs.writeFileSync 'data.json','var data = ' + JSON.stringify(samples)
+
+samples = for i in [0..nsamples]
+	if i<nsamples*.85
+    [ uniform(1000), Math.min(maxval, Math.max(minval, 7 * exponential(1.8) )) ]
+  else
+    [ uniform(300), Math.min(maxval, Math.max(minval, 10 + 7 * exponential(3) )) ]
+
+fs.writeFileSync 'data.js','var data = ' + JSON.stringify(samples)
 ysize = maxval / ybuckets
 xsize = 1000 / xbuckets
 
