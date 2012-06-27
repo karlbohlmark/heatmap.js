@@ -2,6 +2,10 @@ graphX = 20.5
 graphY = 300
 
 class Heatmap
+  zoom: 1
+  zoomPos: 0
+  offset: 0
+  panOffset: 0
   constructor: (@options)->
     @width = @options.width
     @height = @options.height
@@ -25,36 +29,75 @@ class Heatmap
       max = Math.max(max, count + 1)
     { data:buckets, max }
 
+  zoomFactorFromMouseDelta: (delta) -> delta / 160 + 1
+
   render: (samples)->
     { data, max }  = @partition(samples)
 
     ypxl = @height/@ybuckets
     xpxl = @width/@xbuckets
 
+    @data = data
+    @ypxl = ypxl
+    @xpxl = xpxl
+    @max = max
+
     renderer = @options.renderer or 'html'
 
-    @['render_' + renderer].call @, data, xpxl, ypxl, max
+    @['render_' + renderer].call @
 
-  render_canvas: (data, xpxl, ypxl, max)->
+  initZoom: ()=>
+    @canvas.addEventListener 'mousewheel', (e)=>
+      @zoom = @zoom * @zoomFactorFromMouseDelta e.wheelDelta
+      @zoomPos = e.x
+      @draw_canvas()
+      e.preventDefault()
+
+  initPan: ()=>
+    panMove = (move)=>
+      @panOffset = move.x - @panStart
+      @draw_canvas()
+
+    panUp = (move)=>
+      @offset = @offset + @panOffset
+      @panStart = 0
+      @panOffset = 0
+    
+      @canvas.removeEventListener 'mousemove', panMove
+      @canvas.removeEventListener 'mouseup', panUp
+
+    panDown = (down)=>
+      @panStart = down.x
+      @canvas.addEventListener 'mousemove', panMove
+      
+      @canvas.addEventListener 'mouseup', panUp
+
+    @canvas.addEventListener 'mousedown', panDown
+
+  render_canvas: ()->
     @canvas = document.createElement('canvas')
     @canvas.width = @width
     @canvas.height = @height
     @ctx = @canvas.getContext('2d')
 
-    #console.log xpxl, ypxl
-
-    data.forEach (time, i) =>
-      time.forEach (count, j) =>
-        rgb = hsl2rgb(210, 97, (1-(count/max))*100)
-        @ctx.fillStyle = "rgb(#{rgb.r},#{rgb.g},#{rgb.b})"
-        posx = graphX + i * xpxl
-        posy = graphY - (j + 1) * ypxl
-        
-        @ctx.fillRect posx, posy, xpxl+1, ypxl
-
-    @drawAxis()
-
+    @draw_canvas()
     @options.target.appendChild(@canvas)
+
+    @initZoom()
+    @initPan()
+
+  draw_canvas: ()=>
+      @ctx.clearRect(0, 0, @canvas.width, @canvas.height)
+      @data.forEach (time, i) =>
+        time.forEach (count, j) =>
+          rgb = hsl2rgb(210, 97, (1-(count/@max))*100)
+          @ctx.fillStyle = "rgb(#{rgb.r},#{rgb.g},#{rgb.b})"
+          posx = (i * @xpxl)
+          posy = graphY - (j + 1) * @ypxl
+          
+          posx = @zoomPos + (posx-@zoomPos)*@zoom + @offset + @panOffset
+
+          @ctx.fillRect posx, posy, (@xpxl+1)*@zoom, @ypxl
 
   render_html: (data, xpxl, ypxl, max)->
     @div = document.createElement('div')
@@ -78,7 +121,7 @@ class Heatmap
           samples: count
         })); 
         
-        bucket.style.width  = xpxl + 'px'
+        bucket.style.width  = 1 + xpxl + 'px'
         bucket.style.height = ypxl + 'px'
 
         bucket.style.left   = posx + 'px'

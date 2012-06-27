@@ -8,6 +8,7 @@ heatmap = new Heatmap(
   ybuckets: 50
   ymax: 50
   xmax: 1000
+  renderer: 'canvas'
 )
 
 heatmap.render(data)
