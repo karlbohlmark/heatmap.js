@@ -1,11 +1,10 @@
-graphX = 20.5
-graphY = 300
+LinearTransform = require('./linearTransform')
+CanvasRenderer = require('./canvasRenderer')
+#partition = require('./partition')
+
 
 class Heatmap
-  zoom: 1
-  zoomPos: 0
-  offset: 0
-  panOffset: 0
+  xscale: new LinearTransform()
   constructor: (@options)->
     @width = @options.width
     @height = @options.height
@@ -15,119 +14,30 @@ class Heatmap
     @ymax = @options.ymax
     @xsize = @xmax/@xbuckets
     @ysize = @ymax/@ybuckets
+    @graphPosX = @options.graphPosX
+    @graphPosY = @options.graphPosY
 
-  partition: (samples)->
-    buckets = []
-
-    max = 0
-    for sample in samples
-      xbucket = ~~( sample[0]/@xsize )
-      ybucket = ~~( sample[1]/@ysize )
-      buckets[xbucket]?=[]
-      count = buckets[xbucket][ybucket] || 0
-      buckets[xbucket][ybucket] = count + 1
-      max = Math.max(max, count + 1)
-    { data:buckets, max }
-
-  zoomFactorFromMouseDelta: (delta) -> delta / 160 + 1
+  #partition: (samples)-> partition samples, @xsize, @ysize
 
   render: (samples)->
-    { data, max }  = @partition(samples)
-
-    ypxl = @height/@ybuckets
-    xpxl = @width/@xbuckets
-
+    { data, max }  = partitioned
     @data = data
-    @ypxl = ypxl
-    @xpxl = xpxl
     @max = max
 
-    renderer = @options.renderer or 'html'
+    @renderer = new CanvasRenderer(
+      @options.target,
+      {
+        scale: @xscale
+        width: @width
+        height: @height
+        xbuckets: @xbuckets
+        ybuckets: @ybuckets
+        graphPosX: @graphPosX
+        graphPosY: @graphPosY
+      }
+    )
 
-    @['render_' + renderer].call @
-
-  initZoom: ()=>
-    @canvas.addEventListener 'mousewheel', (e)=>
-      @zoom = @zoom * @zoomFactorFromMouseDelta e.wheelDelta
-      @zoomPos = e.x
-      @draw_canvas()
-      e.preventDefault()
-
-  initPan: ()=>
-    panMove = (move)=>
-      @panOffset = move.x - @panStart
-      @draw_canvas()
-
-    panUp = (move)=>
-      @offset = @offset + @panOffset
-      @panStart = 0
-      @panOffset = 0
-    
-      @canvas.removeEventListener 'mousemove', panMove
-      @canvas.removeEventListener 'mouseup', panUp
-
-    panDown = (down)=>
-      @panStart = down.x
-      @canvas.addEventListener 'mousemove', panMove
-      
-      @canvas.addEventListener 'mouseup', panUp
-
-    @canvas.addEventListener 'mousedown', panDown
-
-  render_canvas: ()->
-    @canvas = document.createElement('canvas')
-    @canvas.width = @width
-    @canvas.height = @height
-    @ctx = @canvas.getContext('2d')
-
-    @draw_canvas()
-    @options.target.appendChild(@canvas)
-
-    @initZoom()
-    @initPan()
-
-  draw_canvas: ()=>
-      @ctx.clearRect(0, 0, @canvas.width, @canvas.height)
-      @data.forEach (time, i) =>
-        time.forEach (count, j) =>
-          rgb = hsl2rgb(210, 97, (1-(count/@max))*100)
-          @ctx.fillStyle = "rgb(#{rgb.r},#{rgb.g},#{rgb.b})"
-          posx = (i * @xpxl)
-          posy = graphY - (j + 1) * @ypxl
-          
-          posx = @zoomPos + (posx-@zoomPos)*@zoom + @offset + @panOffset
-
-          @ctx.fillRect posx, posy, (@xpxl+1)*@zoom, @ypxl
-
-  render_html: (data, xpxl, ypxl, max)->
-    @div = document.createElement('div')
-    @div.style.width = @width
-    @div.style.height = @height
-
-    data.forEach (time, i) =>
-      time.forEach (count, j) =>
-        bucket = document.createElement('div')
-
-        rgb = hsl2rgb(210, 97, (1-(count/max))*100)
-        bucket.style.backgroundColor = "rgb(#{rgb.r},#{rgb.g},#{rgb.b})"
-        bucket.style.position = 'absolute'
-
-        posx = graphX + i * xpxl
-        posy = graphY - (j + 1) * ypxl
-
-        bucket.setAttribute('data-bucket', JSON.stringify( {
-          time: [ (i-1) * @xsize, i * @xsize ],
-          value: [ (j-1) * @ysize, j * @ysize ],
-          samples: count
-        })); 
-        
-        bucket.style.width  = 1 + xpxl + 'px'
-        bucket.style.height = ypxl + 'px'
-
-        bucket.style.left   = posx + 'px'
-        bucket.style.top    = posy + 'px'
-
-        @div.appendChild bucket
+    @renderer.render(@data, @max)
 
     showBucket = (e)=> 
       return if e.offsetTop <= 8
@@ -142,28 +52,7 @@ class Heatmap
     closeDetail = ()=>
       @detail.style.display = 'none'
 
-    @div.addEventListener 'mouseover', (e)->
-      showBucket e.target
-
-    @div.addEventListener 'mouseout', (e)->
-      closeDetail()
-
     # @drawAxis()
-
-    @detail = document.createElement 'div'
-    @detail.className = 'detail'
-    @detail.innerHTML = """
-    <dl>
-      <dt>Time span: <dd class="timespan">
-      <dt>Value span: <dd class="valuespan">
-      <dt>Samples: <dd class="samples">
-    </dl>"""
-    @detail.style.position = 'absolute'
-    @detail.style.display = 'none'
-
-    @options.target.appendChild(@div)
-
-    @options.target.appendChild(@detail)
 
   # drawAxis : ->
   #   ctx = @ctx
@@ -177,5 +66,4 @@ class Heatmap
   #   i = 0
 
 
-window.Heatmap = Heatmap
-
+module.exports = Heatmap

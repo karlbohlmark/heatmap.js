@@ -1,7 +1,8 @@
 fs = require 'fs'
+partition = require './partition'
 
 ybuckets = 50
-xbuckets = 100
+xbuckets = 200
 
 minval = 1
 maxval = 70
@@ -38,13 +39,4 @@ fs.writeFileSync 'data.js','var data = ' + JSON.stringify(samples)
 ysize = maxval / ybuckets
 xsize = 1000 / xbuckets
 
-buckets = []    
-for sample in samples
-  xbucket = ~~( sample[0]/xsize )
-  ybucket = ~~( sample[1]/ysize )
-  buckets[xbucket]?=[]
-  count = buckets[xbucket][ybucket] || 0
-  buckets[xbucket][ybucket] = count + 1
-buckets
-
-console.dir(buckets)
+fs.writeFileSync 'partitioned.js', 'var partitioned = ' + JSON.stringify( partition samples, xsize, ysize )
