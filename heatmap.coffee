@@ -8,30 +8,28 @@ class Heatmap
   constructor: (@options)->
     @width = @options.width
     @height = @options.height
+    ###
     @xbuckets = @options.xbuckets
     @ybuckets = @options.ybuckets
     @xmax = @options.xmax
     @ymax = @options.ymax
     @xsize = @xmax/@xbuckets
     @ysize = @ymax/@ybuckets
+    ###
     @graphPosX = @options.graphPosX
     @graphPosY = @options.graphPosY
 
   #partition: (samples)-> partition samples, @xsize, @ysize
 
-  render: (samples)->
-    { data, max }  = partitioned
+  render: (data)->
     @data = data
-    @max = max
 
     @renderer = new CanvasRenderer(
-      @options.target,
+      @options.target, data
       {
         scale: @xscale
         width: @width
         height: @height
-        xbuckets: @xbuckets
-        ybuckets: @ybuckets
         graphPosX: @graphPosX
         graphPosY: @graphPosY
       }

@@ -1,21 +1,17 @@
 Emitter = require('./Emitter')
 
 class CanvasRenderer extends Emitter
-    constructor: (@targetEl, options)->
+    constructor: (@targetEl, @data, options)->
         _super.call @
         @xscale = options.scale || new LinearTransform()
         @width  = options.width || @targetEl.clientWidth
         @height = options.height || @targetEl.clientHeight
-        @ybuckets = options.ybuckets || 10
-        @xbuckets = options.xbuckets || 50
-        @xpxl   = @width / @xbuckets
-        @ypxl   = @height / @ybuckets
         @graphPosY = options.graphPosY || 300
         @graphPosX = options.graphPosX || 0
 
     panOffset: 0
     initZoom: ()=>
-        @canvas.addEventListener 'mousewheel', (e)=>
+        @container.addEventListener 'mousewheel', (e)=>
             zoomFactor= @zoomFactorFromMouseDelta e.wheelDelta
             x = @xscale.invert(e.x)
             k0 = @xscale.k()
@@ -40,50 +36,111 @@ class CanvasRenderer extends Emitter
         panUp = (move)=>
             @panStart = 0
             @offsetStart = 0
-            @canvas.removeEventListener 'mousemove', panMove
-            @canvas.removeEventListener 'mouseup', panUp
+            @container.removeEventListener 'mousemove', panMove
+            @container.removeEventListener 'mouseup', panUp
 
         panDown = (down)=>
             @panStart = down.x
             @offsetStart = @xscale.l()
-            @canvas.addEventListener 'mousemove', panMove
-            @canvas.addEventListener 'mouseup', panUp
+            @container.addEventListener 'mousemove', panMove
+            @container.addEventListener 'mouseup', panUp
       
-        @canvas.addEventListener('mousedown', panDown)
+        @container.addEventListener('mousedown', panDown)
         
     zoomFactorFromMouseDelta: (delta) -> delta / 180 + 1
 
-    setData: (data, max)=>
+    setData: (data)=>
         @data = data
-        @max = max
-        @emit 'data', data, max
+        @emit 'data', data
 
-    render: (data, max)=>
-        @canvas = document.createElement('canvas')
-        @canvas.width = @width
-        @canvas.height = @height
-        @ctx = @canvas.getContext('2d')
-        
-        @on 'data', @draw
-        @setData(data, max)
-        
-        @targetEl.appendChild(@canvas)
+    render: (data)=>
+        @container = document.createElement 'div'
+        @container.style.width = @width + 'px'
+        @container.style.height = @height + 'px'
+        @targetEl.appendChild @container
 
+        @layers = (new CanvasLayer(@xscale, partition, @width, @height) for partition in data.partitionings)
+
+        @container.appendChild(layer.render()) for layer in @layers
+        @draw()
         @initZoom()
         @initPan()
 
-    draw: ()=>
+
+    draw: ()->
+        prevZoomFactor = 0
+        refBuckets = @layers[0].data.xbuckets
+        for layer, i in @layers
+            zoom = @xscale.k()
+            layerZoomFactor = layer.data.xbuckets/refBuckets
+            alpha = 0
+            if(@layers.length>i+1)
+                nextZoomFactor = @layers[i+1].data.xbuckets/refBuckets
+            else
+                nextZoomFactor = 0
+            
+            alpha = @getAlpha zoom, layerZoomFactor, prevZoomFactor, nextZoomFactor
+
+            layer.draw(alpha)
+            prevZoomFactor = layerZoomFactor
+
+    getAlpha: (zoom, layerZoomFactor, prevZoomFactor, nextZoomFactor)->
+        if (zoom < layerZoomFactor and prevZoomFactor==0) or (zoom> layerZoomFactor and nextZoomFactor==0)
+            return 1
+
+        if zoom < layerZoomFactor
+            quarter = (layerZoomFactor - prevZoomFactor)/4
+            fadeinThreshold = prevZoomFactor + quarter
+            alpha = (zoom - fadeinThreshold) / (quarter * 2)
+            alpha = 0 if alpha<0
+            alpha = 1 if alpha>1
+            return alpha
+        
+        if zoom > layerZoomFactor
+            quarter = (nextZoomFactor - layerZoomFactor)/4
+            fadeoutThreshold = layerZoomFactor + quarter
+            alpha = 1 - (zoom - fadeoutThreshold) / (quarter * 2)
+            alpha = 0 if alpha<0
+            alpha = 1 if alpha>1
+            return alpha
+            
+        return 1 if zoom == layerZoomFactor
+
+        throw new Error('Cannot calculate alpha from:' + JSON.stringify(Array::slice.call(arguments)))
+
+class CanvasLayer extends Emitter
+    constructor: (@xscale, @data, @width, @height)->
+        @max = @data.maxBucketSampleCount
+        @xpxl = @width/@data.xbuckets
+        @ypxl = @height/@data.ybuckets
+        @graphPosX = 0
+        @graphPosY = @height - 100
+        #@dataSource.on 'data', @emit.bind @, 'data'
+
+
+    draw: (alpha)->
+        if alpha?
+            @canvas.style.opacity = alpha
+            return if alpha=0
+
         @ctx.clearRect(0, 0, @canvas.width, @canvas.height)
-        @data.forEach (time, i) =>
-            console.log time
+        viewPortStart = Math.floor(@xscale.invert(0))
+        @data.buckets.forEach (time, i) =>
+            posx = (i * @xpxl)
+            sposx = @xscale.map(posx)
+            endx = @xscale.map(posx + @xpxl)
             time.forEach (count, j) =>
                 rgb = hsl2rgb(210, 97, (1-(count/@max))*100)
                 @ctx.fillStyle = "rgb(#{rgb.r},#{rgb.g},#{rgb.b})"
-                posx = (i * @xpxl)
                 posy = @graphPosY - (j + 1) * @ypxl
-
-                sposx = @xscale.map(posx)
-                endx = @xscale.map(posx + @xpxl)
                 @ctx.fillRect sposx, posy, endx-sposx, @ypxl
+
+    render: (data)=>
+        @canvas = document.createElement('canvas')
+        @canvas.width = @width
+        @canvas.height = @height
+        @canvas.style.position = 'absolute'
+        @ctx = @canvas.getContext('2d')
+        @canvas
 
 module.exports = CanvasRenderer

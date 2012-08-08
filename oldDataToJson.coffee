@@ -2,15 +2,6 @@ fs = require 'fs'
 times = fs.readFileSync('times.txt').toString()
 partition = require './partition'
 
-class MaxCollector
-	constructor:(@name)->
-		delete @name if not @name
-		@max = 0
-	collect: (val)->
-		val = parseInt(val)
-		@max = val if(val>@max)
-
-
 class Reducer
 	constructor:(@val, @reduce, @name)->
 		delete @name if not @name
