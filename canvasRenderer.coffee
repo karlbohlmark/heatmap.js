@@ -12,18 +12,9 @@ class CanvasRenderer extends Emitter
     panOffset: 0
     initZoom: ()=>
         @container.addEventListener 'mousewheel', (e)=>
-            zoomFactor= @zoomFactorFromMouseDelta e.wheelDelta
+            zoomFactor = @zoomFactorFromMouseDelta e.wheelDelta
             x = @xscale.invert(e.x)
-            k0 = @xscale.k()
-            k1 = zoomFactor * k0
-            @xscale.k( k1 )
-
-            l0 = @xscale.l()
-            # k0*x + l0 = k1*x +l1 //because the point we are zooming around should stay put
-            l1 = k0*x + l0 - k1*x
-
-            @xscale.l( l1 );
-
+            @xscale.multiplySlopeAtPoint(zoomFactor, x)
             @draw()
             e.preventDefault()
 

@@ -16,5 +16,14 @@ class LinearTransform
   invert: (y)->
     (y-@_l)/@_k
 
+  multiplySlopeAtPoint: (slopeFactor, x)->
+    k0 = @_k
+    k1 = slopeFactor * k0
+    l0 = @_l
+    # k0*x + l0 = k1*x +l1 //because the point we are zooming around should stay put
+    l1 = k0*x + l0 - k1*x
+    @_k = k1
+    @_l = l1;
+
 
   module.exports = LinearTransform
