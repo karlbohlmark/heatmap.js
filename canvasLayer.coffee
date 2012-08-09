@@ -10,9 +10,8 @@ class CanvasLayer extends Emitter
         @graphPosX = 0
         @graphPosY = @height - 100
         @buckets = @prepareBucketData data
-        #@dataSource.on 'data', @emit.bind @, 'data'
 
-    rgbFromLightness: (rankFraction)-> 
+    rgbFromRankFraction: (rankFraction)-> 
         rgb = hsl2rgb(210, 97, 5 + rankFraction * 90)
         #rgb = hsl2rgb(238, rankFraction*100, 60)
         #rgb = hsl2rgb(rankFraction * 255, 80, 60)
@@ -30,7 +29,7 @@ class CanvasLayer extends Emitter
         uniqueValues.sort((a, b)-> b - a )
         colors = {}
         maxRank = uniqueValues.length
-        colors[i] = @rgbFromLightness( (i+1)/maxRank) for i in [0..maxRank]
+        colors[i] = @rgbFromRankFraction( (i+1)/maxRank) for i in [0..maxRank]
         values.sort (a, b)-> a.sampleCount - b.sampleCount
         values.forEach (value)-> 
             value.rank = uniqueValues.indexOf value.sampleCount
