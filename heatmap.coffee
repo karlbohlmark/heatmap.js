@@ -1,67 +1,99 @@
-LinearTransform = require('./linearTransform')
-CanvasRenderer = require('./canvasRenderer')
-#partition = require('./partition')
+Emitter = require('./Emitter')
+CanvasLayer = require('./canvasLayer')
+
+class HeatMap extends Emitter
+    constructor: (@targetEl, @data, options)->
+        _super.call @
+        @xscale = options.scale || new LinearTransform()
+        @width  = options.width || @targetEl.clientWidth
+        @height = options.height || @targetEl.clientHeight
+        @graphPosY = options.graphPosY || 300
+        @graphPosX = options.graphPosX || 0
+
+    panOffset: 0
+    initZoom: ()=>
+        @container.addEventListener 'mousewheel', (e)=>
+            zoomFactor = @zoomFactorFromMouseDelta e.wheelDelta
+            x = @xscale.invert(e.x)
+            @xscale.multiplySlopeAtPoint(zoomFactor, x)
+            @draw()
+            e.preventDefault()
+
+    initPan: ()=>
+        panMove = (move)=>
+            panOffset = (move.x - @panStart)
+            @xscale.l(@offsetStart + panOffset)
+            @draw()
+
+        panUp = (move)=>
+            @panStart = 0
+            @offsetStart = 0
+            @container.removeEventListener 'mousemove', panMove
+            @container.removeEventListener 'mouseup', panUp
+
+        panDown = (down)=>
+            @panStart = down.x
+            @offsetStart = @xscale.l()
+            @container.addEventListener 'mousemove', panMove
+            @container.addEventListener 'mouseup', panUp
+      
+        @container.addEventListener('mousedown', panDown)
+        
+    zoomFactorFromMouseDelta: (delta) -> delta / 180 + 1
+
+    setData: (data)=>
+        @data = data
+        @emit 'data', data
+
+    render: (data)=>
+        @container = document.createElement 'div'
+        @targetEl.appendChild @container
+
+        @layers = (new CanvasLayer(@xscale, partition, @width, @height) for partition in data.partitionings)
+
+        @container.appendChild(layer.render()) for layer in @layers
+        @draw()
+        @initZoom()
+        @initPan()
 
 
-class Heatmap
-  xscale: new LinearTransform()
-  constructor: (@options)->
-    @width = @options.width
-    @height = @options.height
-    ###
-    @xbuckets = @options.xbuckets
-    @ybuckets = @options.ybuckets
-    @xmax = @options.xmax
-    @ymax = @options.ymax
-    @xsize = @xmax/@xbuckets
-    @ysize = @ymax/@ybuckets
-    ###
-    @graphPosX = @options.graphPosX
-    @graphPosY = @options.graphPosY
+    draw: ()->
+        prevZoomFactor = 0
+        refBuckets = @layers[0].xbuckets
+        for layer, i in @layers
+            zoom = @xscale.k()
+            layerZoomFactor = layer.xbuckets/refBuckets
+            alpha = 0
+            if(@layers.length>i+1)
+                nextZoomFactor = @layers[i+1].xbuckets/refBuckets
+            else
+                nextZoomFactor = 0
+            
+            alpha = @getAlpha zoom, layerZoomFactor, prevZoomFactor, nextZoomFactor
 
-  #partition: (samples)-> partition samples, @xsize, @ysize
+            layer.draw(alpha)
+            prevZoomFactor = layerZoomFactor
 
-  render: (data)->
-    @data = data
+    getAlpha: (zoom, layerZoomFactor, prevZoomFactor, nextZoomFactor)->
+        if (zoom < layerZoomFactor and prevZoomFactor==0) or (zoom> layerZoomFactor and nextZoomFactor==0)
+            return 1
 
-    @renderer = new CanvasRenderer(
-      @options.target, data
-      {
-        scale: @xscale
-        width: @width
-        height: @height
-        graphPosX: @graphPosX
-        graphPosY: @graphPosY
-      }
-    )
+        if zoom < layerZoomFactor
+            quarter = (layerZoomFactor - prevZoomFactor)/4
+            fadeinThreshold = prevZoomFactor + quarter
+            alpha = (zoom - fadeinThreshold) / (quarter * 2)
+            alpha = 0 if alpha<0
+            return alpha
+        
+        if zoom > layerZoomFactor
+            quarter = (nextZoomFactor - layerZoomFactor)/4
+            fadeoutThreshold = layerZoomFactor + quarter
+            alpha = 1 - (zoom - fadeoutThreshold) / (quarter * 2)
+            alpha = 1 if alpha>1
+            return alpha
+            
+        return 1 if zoom == layerZoomFactor
 
-    @renderer.render(@data, @max)
+        throw new Error('Cannot calculate alpha from:' + JSON.stringify(Array::slice.call(arguments)))
 
-    showBucket = (e)=> 
-      return if e.offsetTop <= 8
-      @detail.style.top = Math.max( e.offsetTop  - 130, 0) + 'px'
-      @detail.style.left = e.offsetLeft + 18 + 'px'
-      @detail.style.display = 'block'
-      bucket = JSON.parse(e.getAttribute('data-bucket'))
-      @detail.querySelector('.timespan').innerHTML = bucket.time[0] + '-' + bucket.time[1]
-      @detail.querySelector('.valuespan').innerHTML = bucket.value[0] + '-' + bucket.value[1]
-      @detail.querySelector('.samples').innerHTML = bucket.samples
-
-    closeDetail = ()=>
-      @detail.style.display = 'none'
-
-    # @drawAxis()
-
-  # drawAxis : ->
-  #   ctx = @ctx
-  #   ctx.strokeStyle = "rgb(128,128,128)"
-  #   ctx.strokeWidth = 2
-  #   ctx.beginPath()
-  #   ctx.moveTo 20.5, 20
-  #   ctx.lineTo 20.5, 300
-  #   ctx.stroke()
-  #   ctx.lineWidth = 1
-  #   i = 0
-
-
-module.exports = Heatmap
+module.exports = HeatMap
