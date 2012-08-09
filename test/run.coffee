@@ -1,0 +1,2 @@
+CanvasRenderer = require('../CanvasRenderer')
+
